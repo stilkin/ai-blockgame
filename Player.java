@@ -20,15 +20,15 @@ class Player {
 	final Player aiPlayer = new Player();
 	final int[][] myGrid = new int[WIDTH][HEIGHT];
 	final int[][] enGrid = new int[WIDTH][HEIGHT];
-	final int[][] nextBlocks = new int[FUTURE_BLOCKS][2];
+	final int[][] futureBlocks = new int[FUTURE_BLOCKS][2];
 
 	// game loop
 	while (RUNNING) {
-
+	    final long roundStart = System.currentTimeMillis();
 	    /* CONSOLE INPUT */
 	    for (int f = 0; f < FUTURE_BLOCKS; f++) { // colors of new blocks
-		nextBlocks[f][0] = in.nextInt();
-		nextBlocks[f][1] = in.nextInt();
+		futureBlocks[f][0] = in.nextInt();
+		futureBlocks[f][1] = in.nextInt();
 	    }
 
 	    for (int y = HEIGHT - 1; y >= 0; y--) { // my grid
@@ -63,73 +63,32 @@ class Player {
 	    aiPlayer.myField.setGrid(myGrid);
 	    aiPlayer.enField.setGrid(enGrid);
 
-	    aiPlayer.nextMove(nextBlocks);
+	    aiPlayer.nextMove(futureBlocks);
 
+	    final long duration = System.currentTimeMillis() - roundStart;
+	    System.err.println("Duration: " + duration);
 	}
 
 	in.close();
     }
 
     private void nextMove(final int[][] futureBlocks) {
-	System.err.println(myField.toString());
+	// System.err.println(myField.toString());
 	final int[] nextBlocks = futureBlocks[0];
-	System.err.println("Next blocks: " + nextBlocks[0] + " " + nextBlocks[1]);
+	// System.err.println("Next blocks: " + nextBlocks[0] + " " + nextBlocks[1]);
 
 	final HashMap<GameField, Move> newMoves = new HashMap<GameField, Move>();
 	for (int x = 0; x < WIDTH; x++) {
-
-	    if (myField.getHeight(x) <= HEIGHT - 2) {
+	    for (int or = 0; or < 4; or++) {
 		final Move mv = new Move();
 		mv.column = x;
-		mv.orientation = Move.VERT;
-		final GameField gameField = new GameField();
-
-		gameField.setGrid(myField.grid);
-		gameField.addToColumn(x, nextBlocks[0]);
-		gameField.addToColumn(x, nextBlocks[1]);
-		newMoves.put(gameField, mv);
-		System.err.println(mv + ": " + gameField.printStats());
-	    }
-	    if (myField.getHeight(x) <= HEIGHT - 2) {
-		final Move mv = new Move();
-		mv.column = x;
-		mv.orientation = Move.VERT_INV;
-		final GameField gameField = new GameField();
-
-		gameField.setGrid(myField.grid);
-		gameField.addToColumn(x, nextBlocks[1]);
-		gameField.addToColumn(x, nextBlocks[0]);
-		newMoves.put(gameField, mv);
-		System.err.println(mv + ": " + gameField.printStats());
-	    }
-	    if (x < WIDTH - 1) {
-		if (myField.getHeight(x) <= HEIGHT - 1 && myField.getHeight(x + 1) <= HEIGHT - 1) {
-		    final Move mv = new Move();
-		    mv.column = x;
-		    mv.orientation = Move.HORI;
-		    final GameField gameField = new GameField();
-
-		    gameField.setGrid(myField.grid);
-		    gameField.addToColumn(x, nextBlocks[0]);
-		    gameField.addToColumn(x + 1, nextBlocks[1]);
-		    newMoves.put(gameField, mv);
-		    System.err.println(mv + ": " + gameField.printStats());
+		mv.orientation = or;
+		final GameField newField = simulateMove(myField, mv, nextBlocks);
+		if (newField != null) {
+		    newMoves.put(newField, mv);
 		}
 	    }
-	    if (x > 1) {
-		if (myField.getHeight(x) <= HEIGHT - 1 && myField.getHeight(x - 1) <= HEIGHT - 1) {
-		    final Move mv = new Move();
-		    mv.column = x;
-		    mv.orientation = Move.HORI_INV;
-		    final GameField gameField = new GameField();
 
-		    gameField.setGrid(myField.grid);
-		    gameField.addToColumn(x, nextBlocks[0]);
-		    gameField.addToColumn(x - 1, nextBlocks[1]);
-		    newMoves.put(gameField, mv);
-		    System.err.println(mv + ": " + gameField.printStats());
-		}
-	    }
 	}
 
 	// sort moves
@@ -140,6 +99,51 @@ class Player {
 	final Move myMove = newMoves.get(moves.get(0));
 	// Write an action using System.out.println()
 	System.out.println(myMove); // "x": the column in which to drop your blocks
+    }
+
+    private GameField simulateMove(final GameField previousField, final Move move, final int[] nextBlocks) {
+	final GameField gameField = new GameField();
+	gameField.setGrid(previousField.grid);
+	final int x = move.column;
+	boolean success = false;
+	switch (move.orientation) {
+	    case Move.VERT:
+		if (gameField.getHeight(x) <= HEIGHT - 2) {
+		    gameField.addToColumn(x, nextBlocks[0]);
+		    gameField.addToColumn(x, nextBlocks[1]);
+		    success = true;
+		}
+		break;
+	    case Move.VERT_INV:
+		if (gameField.getHeight(x) <= HEIGHT - 2) {
+		    gameField.addToColumn(x, nextBlocks[1]);
+		    gameField.addToColumn(x, nextBlocks[0]);
+		    success = true;
+		}
+		break;
+	    case Move.HORI:
+		if (x < WIDTH - 1) {
+		    if (gameField.getHeight(x) <= HEIGHT - 1 && gameField.getHeight(x + 1) <= HEIGHT - 1) {
+			gameField.addToColumn(x, nextBlocks[0]);
+			gameField.addToColumn(x + 1, nextBlocks[1]);
+			success = true;
+		    }
+		}
+		break;
+	    case Move.HORI_INV:
+		if (x > 1) {
+		    if (gameField.getHeight(x) <= HEIGHT - 1 && gameField.getHeight(x - 1) <= HEIGHT - 1) {
+			gameField.addToColumn(x, nextBlocks[0]);
+			gameField.addToColumn(x - 1, nextBlocks[1]);
+			success = true;
+		    }
+		}
+		break;
+	}
+	if (success) {
+	    return gameField;
+	}
+	return null;
     }
 
     public static final class Move {
